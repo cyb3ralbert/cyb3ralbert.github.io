@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>git-crypt + Trezor: hardware-backed repo keys</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-panel: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --code-bg: #0a0d12;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.65;
+  }
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 3rem 1.25rem 5rem;
+  }
+  h1 {
+    font-size: 1.9rem;
+    line-height: 1.3;
+    margin-bottom: 0.25rem;
+  }
+  .meta {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 2.5rem;
+  }
+  h2 {
+    font-size: 1.3rem;
+    margin-top: 2.5rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.4rem;
+  }
+  p, li { color: var(--text); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.1em 0.4em;
+    font-size: 0.88em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+    overflow-x: auto;
+    font-size: 0.85rem;
+  }
+  pre code {
+    background: none;
+    border: none;
+    padding: 0;
+  }
+  .chain {
+    text-align: center;
+    font-size: 1.05rem;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.1rem;
+    margin: 1.5rem 0;
+    color: var(--accent);
+  }
+  blockquote {
+    border-left: 3px solid var(--accent);
+    margin: 1rem 0;
+    padding: 0.3rem 1rem;
+    color: var(--text-dim);
+    background: var(--bg-panel);
+    border-radius: 0 6px 6px 0;
+  }
+  .note {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid #d29922;
+    border-radius: 0 6px 6px 0;
+    padding: 0.8rem 1.1rem;
+    margin: 1.2rem 0;
+    font-size: 0.95rem;
+  }
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--border);
+  }
+  th { background: var(--bg-panel); }
+</style>
+</head>
+<body>
+<main>
+
+<h1>git-crypt + Trezor: keeping your repo key off the disk entirely</h1>
+<p class="meta">cyb3ralbert &middot; 2026-07-19</p>
+
+<p>
+<code>git-crypt</code> is a solid tool for encrypting parts of a git repo transparently.
+Its default mode, though, stores the symmetric key as a plaintext file on disk
+at <code>.git-crypt/keys/default</code>. Anyone with read access to that file &mdash;
+malware, a careless <code>tar</code> of the wrong directory, a compromised
+backup &mdash; gets the key.
+</p>
+
+<p>
+<code>git-crypt</code> also supports a GPG mode
+(<code>git-crypt add-gpg-user</code>), where the symmetric key is encrypted to
+a GPG identity's public key instead of sitting in the clear. Combine that with
+<a href="https://github.com/romanz/trezor-agent">trezor-agent</a> (a
+hardware-backed GPG/SSH/age agent for Trezor), and the private key material
+never touches the host's disk at all &mdash; it's generated and lives on the
+Trezor. The host only ever sees encrypt/decrypt <em>results</em>.
+</p>
+
+<div class="chain">
+git-crypt (GPG mode) &rarr; GPG &rarr; trezor-agent &rarr; Trezor
+</div>
+
+<p>
+Nothing here is novel cryptography &mdash; it's three existing, well-tested
+pieces wired together. What I couldn't find anywhere before doing this myself
+was a documented end-to-end run of <em>this specific combination</em>, with
+the actual UX questions answered: does <code>git-crypt unlock</code> ping the
+Trezor once per session, or once per file? (Once per <code>unlock</code> call
+&mdash; not per file, which matters a lot for whether this is usable day to
+day, not just a neat demo.)
+</p>
+
+<h2>Why this is worth doing</h2>
+<p>
+The git-crypt key is encrypted to the Trezor identity's public key and stored
+in <code>.git-crypt/keys/</code>. Decrypting it requires the Trezor to sign
+the operation on-device. A compromised host can, at worst, prompt you to
+confirm an operation on the physical Trezor screen &mdash; it cannot exfiltrate
+the key material itself, because the private key was never on the host to
+begin with.
+</p>
+
+<h2>The PIN matrix, explained properly</h2>
+<p>
+This tripped me up initially, so it's worth spelling out clearly. The PIN
+entry prompt (whether curses in a terminal or a GTK dialog) shows a
+<em>fixed position map</em>:
+</p>
+<pre><code>7 8 9
+4 5 6
+1 2 3</code></pre>
+<p>
+This is not the PIN, and it's not read in that visual order. The Trezor's own
+screen shows the same 3&times;3 grid, but with digits shuffled into random
+positions on every attempt. You look at the device screen, find where each
+real digit of your PIN physically sits, and type the corresponding
+<em>position number</em> from the map above. The computer never learns your
+actual PIN digits, only which positions you clicked/typed &mdash; and since the
+layout is randomized per attempt, a keylogger on the host learns nothing
+useful either. It's the exact same scheme Electrum's clickable PIN grid uses,
+just typed instead of clicked.
+</p>
+
+<h2>Setup summary</h2>
+<p>Full step-by-step version, including udev rules, VM USB passthrough, and
+pinentry gotchas, is in the skill below. Short version:</p>
+<pre><code># 1. trezor-agent in a venv
+python3 -m venv venv && source venv/bin/activate
+pip install trezor_agent
+
+# 2. init a hardware-backed GPG identity
+trezor-gpg init "Name &lt;email&gt;" --pin-entry-binary=/usr/bin/pinentry-curses
+
+# 3. wire it into git-crypt
+git-crypt init
+GNUPGHOME=~/.gnupg/trezor git-crypt add-gpg-user &lt;fingerprint&gt;
+
+# 4. verify
+git-crypt lock
+GNUPGHOME=~/.gnupg/trezor git-crypt unlock   # PIN + one Trezor confirmation, whole repo</code></pre>
+
+<div class="note">
+<strong>Gotcha:</strong> <code>trezor-gpg init</code> and <code>git-crypt
+unlock</code> both need a real interactive terminal &mdash; the PIN entry
+program (<code>pinentry-curses</code> or a GUI variant) needs a real TTY or a
+real X <code>DISPLAY</code>. Running this from a non-interactive script or
+automation context without either will just throw an <code>isatty</code>
+error.
+</div>
+
+<h2>Verified against</h2>
+<table>
+<tr><th>Component</th><th>Version</th></tr>
+<tr><td>Trezor</td><td>Trezor One, firmware 1.12.1</td></tr>
+<tr><td>GPG</td><td>2.2.40</td></tr>
+<tr><td>trezor_agent / libagent</td><td>0.13.0</td></tr>
+<tr><td>git-crypt</td><td>0.7.0</td></tr>
+<tr><td>OS</td><td>Debian 12</td></tr>
+</table>
+
+<h2>Full skill / step-by-step</h2>
+<p>
+The complete, copy-pasteable version &mdash; udev rules, libvirt USB
+passthrough for when the Trezor lives on a different host than the repo, and
+notes on relevant upstream trezor-agent issues &mdash; is published as a
+Claude Code skill here:
+</p>
+<p>
+<a href="https://github.com/cyb3ralbert/claude-skills/blob/main/.claude/skills/git-crypt-trezor-setup/SKILL.md">cyb3ralbert/claude-skills &mdash; git-crypt-trezor-setup</a>
+</p>
+
+<footer>
+&copy; 2026 cyb3ralbert &middot; <a href="https://github.com/cyb3ralbert">github.com/cyb3ralbert</a>
+</footer>
+
+</main>
+</body>
+</html>
