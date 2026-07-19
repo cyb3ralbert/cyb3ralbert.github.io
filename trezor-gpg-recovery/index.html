@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recovering a Trezor GPG identity from a seed phrase, no hardware needed</title>
+<meta name="description" content="trezor-agent's GPG key derivation is fully deterministic. A recovery-drill tool that reconstructs the fingerprint purely from the BIP39 seed, verified against SLIP-0010 test vectors and gpg --list-packets.">
+<link rel="canonical" href="https://cyb3ralbert.github.io/trezor-gpg-recovery/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Recovering a Trezor GPG identity from a seed phrase, no hardware needed">
+<meta property="og:description" content="trezor-agent's GPG key derivation is deterministic — reconstructing the exact fingerprint in software from just the BIP39 seed, as a recovery drill.">
+<meta property="og:url" content="https://cyb3ralbert.github.io/trezor-gpg-recovery/">
+<meta property="article:published_time" content="2026-07-19">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Recovering a Trezor GPG identity from a seed phrase">
+<meta name="twitter:description" content="trezor-agent's GPG key derivation is deterministic — no hardware needed to prove your recovery works.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Recovering a Trezor GPG identity from a seed phrase, no hardware needed",
+  "description": "trezor-agent's GPG key derivation is fully deterministic. A recovery-drill tool that reconstructs the fingerprint purely from the BIP39 seed.",
+  "datePublished": "2026-07-19",
+  "author": { "@type": "Person", "name": "cyb3ralbert", "url": "https://github.com/cyb3ralbert" },
+  "url": "https://cyb3ralbert.github.io/trezor-gpg-recovery/"
+}
+</script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-panel: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --code-bg: #0a0d12;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.65;
+  }
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 3rem 1.25rem 5rem;
+  }
+  h1 {
+    font-size: 1.9rem;
+    line-height: 1.3;
+    margin-bottom: 0.25rem;
+  }
+  .meta {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 2.5rem;
+  }
+  h2 {
+    font-size: 1.3rem;
+    margin-top: 2.5rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.4rem;
+  }
+  p, li { color: var(--text); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.1em 0.4em;
+    font-size: 0.88em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+    overflow-x: auto;
+    font-size: 0.85rem;
+  }
+  pre code {
+    background: none;
+    border: none;
+    padding: 0;
+  }
+  .chain {
+    text-align: center;
+    font-size: 1.05rem;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.1rem;
+    margin: 1.5rem 0;
+    color: var(--accent);
+  }
+  .note {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid #d29922;
+    border-radius: 0 6px 6px 0;
+    padding: 0.8rem 1.1rem;
+    margin: 1.2rem 0;
+    font-size: 0.95rem;
+  }
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Recovering a Trezor GPG identity from a seed phrase, no hardware needed</h1>
+<p class="meta">cyb3ralbert &middot; 2026-07-19 &middot; <a href="https://cyb3ralbert.github.io/">&larr; other posts</a></p>
+
+<p>
+After wiring <a href="https://cyb3ralbert.github.io/">git-crypt to a Trezor</a>,
+the obvious next question is disaster recovery: what happens if the Trezor
+is lost or destroyed? The GPG identity's private key was never on disk —
+that's the whole point — so is it gone with the device?
+</p>
+
+<p>
+No — and the reason why is worth spelling out, because it's not obvious
+from the outside. <code>trezor-agent</code>'s GPG identity derivation is
+<em>fully deterministic</em>. Given the same BIP39 seed, passphrase,
+<code>user_id</code> string, curve, and creation-time, it produces the exact
+same key — same fingerprint — every single time. <code>trezor-gpg init</code>
+even defaults the creation-time to epoch <code>0</code>, so a
+default-configured identity needs nothing but the seed phrase and the
+<code>user_id</code> string to reproduce.
+</p>
+
+<p>
+This was already asked (and half-answered, via an unmerged gist) in
+<a href="https://github.com/romanz/trezor-agent/issues/335">romanz/trezor-agent#335</a>.
+I packaged a working, tested version.
+</p>
+
+<div class="chain">
+BIP39 seed &rarr; SLIP-0010 (nist256p1) &rarr; libagent's own packet code &rarr; identical fingerprint
+</div>
+
+<h2>How it works</h2>
+<p>
+<code>libagent</code>'s <code>export_public_key()</code> function doesn't
+care where the private key comes from — it just calls
+<code>device.pubkey()</code> and <code>device.sign()</code> on whatever
+<code>Device</code> object it's handed. Normally that's a real Trezor. I
+wrote a software <code>Device</code> implementation that derives the same
+key from a BIP39 seed via SLIP-0010 instead, and handed it the exact same
+<code>export_public_key()</code> call trezor-gpg uses internally. The
+output — armored public key, fingerprint — comes out byte-identical,
+because it's the same code doing the packet framing either way; only the
+source of the private scalar changed.
+</p>
+
+<p>
+Verified two ways: the SLIP-0010 derivation is cross-checked against the
+official test vector from the SLIP-0010 spec, and the resulting OpenPGP
+key parses correctly (including a valid self-signature, meaning
+<code>sign()</code> works too, not just <code>pubkey()</code>) under
+<code>gpg --list-packets</code>.
+</p>
+
+<h2>What this is (and isn't)</h2>
+<p>
+This is a <strong>recovery drill</strong> tool — run it while you still
+have the device, to confirm your recorded parameters (creation-time,
+<code>user_id</code> string, curve) actually reproduce the fingerprint you
+expect. That's the thing worth verifying before an emergency, not during one.
+</p>
+
+<div class="note">
+<strong>Deliberately not built:</strong> a persistent software gpg-agent
+that decrypts on demand using the recovered key. Materializing the raw
+private key routinely on a host is exactly the risk the whole
+git-crypt+Trezor setup exists to avoid. For actual day-to-day recovery
+after losing a device, the simplest path needs no software here at all:
+restore the same seed onto any Trezor via its normal recovery flow, then
+re-run <code>trezor-gpg init</code> with the original <code>--time</code>
+value. Determinism gives the identical hardware-backed identity back.
+</div>
+
+<h2>Usage</h2>
+<pre><code>python3 recover.py "Name &lt;email&gt;" --time 0 --expect-fingerprint &lt;fingerprint-you-recorded&gt;</code></pre>
+<p>
+Prompts (hidden input) for the mnemonic and BIP39 passphrase. Run air-gapped
+— the derived private key exists in process memory for the run's duration.
+</p>
+
+<h2>Code / skill</h2>
+<p>
+Repo: <a href="https://github.com/cyb3ralbert/trezor-gpg-recovery">cyb3ralbert/trezor-gpg-recovery</a><br>
+Claude Code skill: <a href="https://github.com/cyb3ralbert/claude-skills/blob/main/.claude/skills/trezor-gpg-recovery/SKILL.md">trezor-gpg-recovery</a>
+</p>
+
+<p>
+Related: <a href="https://cyb3ralbert.github.io/">git-crypt + Trezor</a>
+(the setup this recovers), <a href="https://cyb3ralbert.github.io/trezor-totp/">Trezor as a TOTP vault</a>.
+</p>
+
+<footer>
+&copy; 2026 cyb3ralbert &middot; <a href="https://github.com/cyb3ralbert">github.com/cyb3ralbert</a>
+</footer>
+
+</main>
+</body>
+</html>
