@@ -4,6 +4,27 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>git-crypt + Trezor: hardware-backed repo keys</title>
+<meta name="description" content="How to wire git-crypt to a Trezor hardware wallet via GPG and trezor-agent, so the repo's symmetric key never touches disk in plaintext. Step-by-step, with the PIN-matrix mechanics explained and the unlock UX verified.">
+<link rel="canonical" href="https://cyb3ralbert.github.io/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="git-crypt + Trezor: hardware-backed repo keys">
+<meta property="og:description" content="Wiring git-crypt through GPG to a Trezor hardware wallet, so the repo key never touches disk. Full walkthrough, PIN-matrix mechanics, verified UX.">
+<meta property="og:url" content="https://cyb3ralbert.github.io/">
+<meta property="article:published_time" content="2026-07-19">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="git-crypt + Trezor: hardware-backed repo keys">
+<meta name="twitter:description" content="Wiring git-crypt through GPG to a Trezor hardware wallet, so the repo key never touches disk.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "git-crypt + Trezor: keeping your repo key off the disk entirely",
+  "description": "How to wire git-crypt to a Trezor hardware wallet via GPG and trezor-agent, so the repo's symmetric key never touches disk in plaintext.",
+  "datePublished": "2026-07-19",
+  "author": { "@type": "Person", "name": "cyb3ralbert", "url": "https://github.com/cyb3ralbert" },
+  "url": "https://cyb3ralbert.github.io/"
+}
+</script>
 <style>
   :root {
     --bg: #0d1117;
