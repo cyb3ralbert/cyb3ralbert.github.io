@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What MCP servers actually expose</title>
+<meta name="description" content="Which tools an MCP server hands to an agent, checked against the source rather than the README. Six servers read line by line, with file and line references for every claim.">
+<link rel="canonical" href="https://cyb3ralbert.github.io/mcp-tool-exposure/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="What MCP servers actually expose">
+<meta property="og:description" content="Which tools an MCP server hands to an agent, checked against the source rather than the README.">
+<meta property="og:url" content="https://cyb3ralbert.github.io/mcp-tool-exposure/">
+<meta property="article:published_time" content="2026-07-28">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="What MCP servers actually expose">
+<meta name="twitter:description" content="Which tools an MCP server hands to an agent, checked against the source rather than the README.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "What MCP servers actually expose",
+  "description": "Which tools an MCP server hands to an agent, checked against the source rather than the README.",
+  "datePublished": "2026-07-28",
+  "author": { "@type": "Person", "name": "cyb3ralbert", "url": "https://github.com/cyb3ralbert" },
+  "url": "https://cyb3ralbert.github.io/mcp-tool-exposure/"
+}
+</script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-panel: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --code-bg: #0a0d12;
+    --warn: #d29922;
+    --ok: #3fb950;
+    --bad: #f85149;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.65;
+  }
+  main { max-width: 820px; margin: 0 auto; padding: 3rem 1.25rem 5rem; }
+  h1 { font-size: 1.9rem; line-height: 1.3; margin-bottom: 0.25rem; }
+  .meta { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 2rem; }
+  .lede { font-size: 1.05rem; color: var(--text); }
+  h2 { font-size: 1.3rem; margin-top: 2.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+  h3 { font-size: 1.05rem; margin-top: 2rem; margin-bottom: 0.4rem; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 4px;
+    padding: 0.1em 0.4em; font-size: 0.88em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 1rem 1.1rem; overflow-x: auto; font-size: 0.85rem;
+  }
+  pre code { background: none; border: none; padding: 0; }
+  blockquote {
+    border-left: 3px solid var(--accent); margin: 1rem 0; padding: 0.3rem 1rem;
+    color: var(--text-dim); background: var(--bg-panel); border-radius: 0 6px 6px 0;
+  }
+  .note {
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-left: 3px solid var(--warn); border-radius: 0 6px 6px 0;
+    padding: 0.8rem 1.1rem; margin: 1.4rem 0; font-size: 0.95rem;
+  }
+  .table-wrap { overflow-x: auto; margin: 1.2rem 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.87rem; min-width: 640px; }
+  th, td { text-align: left; padding: 0.5rem 0.7rem; border: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--bg-panel); font-weight: 600; }
+  td.y { color: var(--ok); }
+  td.n { color: var(--bad); }
+  .src { font-size: 0.8rem; color: var(--text-dim); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  footer {
+    margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--border);
+    color: var(--text-dim); font-size: 0.85rem;
+  }
+  .nav-top { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 2rem; }
+</style>
+</head>
+<body>
+<main>
+
+<p class="nav-top"><a href="/">cyb3ralbert</a> / mcp-tool-exposure</p>
+
+<h1>What MCP servers actually expose</h1>
+<p class="meta">cyb3ralbert &middot; last updated 2026-07-29</p>
+
+<p class="lede">
+If you run an MCP server behind an agent that auto-approves tool calls, one question
+decides your blast radius: <strong>which tools does the server put in
+<code>tools/list</code>?</strong> Not which ones it will refuse &mdash; which ones the
+model can see, and therefore plan around.
+</p>
+
+<p>
+You cannot answer that from the README. I know because I tried: I built a survey of
+sixteen servers from their documentation, then started reading source, and the survey
+was wrong in both directions. Servers documented as having no control had it. A server
+whose code comments promise tools are "removed from the tool list" never reads the field
+that would do the removing.
+</p>
+
+<p>
+So this page is the narrow version: <strong>servers I have actually read, with a file
+and line for every claim.</strong> Six of them, which is fewer than I would like, but
+they are checked.
+</p>
+
+<h2>The spec does not settle it</h2>
+
+<p>
+There is no per-tool permission mechanism in the Model Context Protocol. Not a field,
+not an interface, not a recommended format. In revision <code>2025-11-25</code> the word
+"permission" appears in <code>schema.ts</code> exactly once, and it is about filesystem
+roots; there is no scope, role, allowlist or audit concept attached to a tool anywhere in
+the schema.
+</p>
+
+<p>What it has instead is a requirement without a mechanism:</p>
+
+<blockquote>
+Servers <strong>MUST</strong>: Validate all tool inputs; <strong>Implement proper access
+controls</strong>; Rate limit tool invocations; Sanitize tool outputs
+<br><span class="src">&mdash; spec 2025-11-25, <code>docs/specification/2025-11-25/server/tools.mdx:512-516</code> @ <code>aa7306ef</code></span>
+</blockquote>
+
+<p>
+How to implement proper access controls is left open. Every server invents its own
+answer, which is why the syntax for the same idea differs in every project.
+</p>
+
+<p>
+The one primitive that distinguishes reading from deleting is <code>ToolAnnotations</code>
+&mdash; <code>readOnlyHint</code>, <code>destructiveHint</code>, <code>idempotentHint</code>,
+<code>openWorldHint</code>. The schema disclaims it in place:
+</p>
+
+<blockquote>
+NOTE: all properties in ToolAnnotations are <strong>hints</strong>. They are not guaranteed
+to provide a faithful description of tool behavior... Clients should never make tool use
+decisions based on ToolAnnotations received from untrusted servers.
+<br><span class="src">&mdash; <code>schema/2025-11-25/schema.ts:1171-1176</code> @ <code>aa7306ef</code></span>
+</blockquote>
+
+<p>
+That disclaimer is correct, and it has a useful consequence: annotations are worthless to
+a <em>client</em> building policy over untrusted servers, but they are fine for a
+<em>server</em> filtering its own tools, where the author of the tool is also the author
+of the hint. Which is where the mechanisms below live.
+</p>
+
+<p>
+Call logging is mentioned once in the whole page, as a SHOULD for clients: "Log tool usage
+for audit purposes" (<code>tools.mdx:524</code>). Nothing is asked of servers.
+</p>
+
+<h2>Three distinctions that decide everything</h2>
+
+<h3>1. Filtered out of the inventory, or refused at call time</h3>
+
+<p>
+These are not variations of the same protection. If a destructive tool appears in
+<code>tools/list</code>, the model plans with it in scope even when every call is
+rejected. The best statement of this I have seen came from a user, not a vendor:
+</p>
+
+<blockquote>
+If destructive tools are visible in a read-only profile, <strong>agents may still plan
+around them even if the server rejects the call later.</strong>
+<br><span class="src">&mdash; <a href="https://github.com/supabase/mcp/issues/281">supabase/mcp#281</a>, open since 2026-05-12</span>
+</blockquote>
+
+<p>
+Rejection at call time protects your data. Filtering protects the plan. They cost about
+the same to implement and only one of them is usually done.
+</p>
+
+<h3>2. Allowlist or denylist</h3>
+
+<p>
+A denylist is fail-open across upgrades. You name the dangerous tools you know about; the
+next release adds one; it arrives enabled. An allowlist is fail-closed: a new tool is
+absent until you name it. For a surface that grows with every release, this is the whole
+argument.
+</p>
+
+<h3>3. What happens when you misspell a tool name</h3>
+
+<p>
+The quietest failure in this whole area. You set an allowlist, typo one entry, and the
+server starts happily with a surface narrower than you think &mdash; or, on some designs,
+wider. Nothing tells you. A server that refuses to start on an unknown name converts a
+silent misconfiguration into a loud one, at the cost of four lines.
+</p>
+
+<h2>Six servers, read line by line</h2>
+
+<div class="note">
+<strong>Scope.</strong> Read on 2026-07-29 at these commits:
+<code>supabase/mcp eeb12563</code>,
+<code>Flux159/mcp-server-kubernetes f35b6c4d</code>,
+<code>containers/kubernetes-mcp-server 71949f32</code>,
+<code>getsentry/sentry-mcp 58aa4f67</code>,
+<code>redis/mcp-redis 3d7ca68a</code>.
+This is what the code does, not what the docs say &mdash; where they disagree, the
+disagreement is noted. Nothing here is a security audit; it is one question asked of six
+codebases. Supabase and Sentry are monorepos; their paths below are given from
+<code>packages/</code> down.
+</div>
+
+<div class="table-wrap">
+<table>
+<tr>
+  <th>Server</th>
+  <th>Per-tool allowlist</th>
+  <th>Filters <code>tools/list</code></th>
+  <th>Unknown name</th>
+  <th>Evidence</th>
+</tr>
+<tr>
+  <td><a href="https://github.com/chigwell/telegram-mcp">chigwell/telegram-mcp</a></td>
+  <td class="y">yes, over a read-only baseline</td>
+  <td class="y">yes &mdash; unnamed write tools are never registered</td>
+  <td class="y">fails to start</td>
+  <td class="src">added in <a href="https://github.com/chigwell/telegram-mcp/pull/168">#168</a>, merged 2026-07-27</td>
+</tr>
+<tr>
+  <td><a href="https://github.com/Flux159/mcp-server-kubernetes">Flux159/mcp-server-kubernetes</a></td>
+  <td class="y">yes &mdash; <code>ALLOWED_TOOLS</code></td>
+  <td class="y">yes, and refuses the call too</td>
+  <td class="y">fails at startup, since <a href="https://github.com/Flux159/mcp-server-kubernetes/pull/356">#356</a></td>
+  <td class="src">src/index.ts:93-104, :242, :185-199</td>
+</tr>
+<tr>
+  <td><a href="https://github.com/containers/kubernetes-mcp-server">containers/kubernetes-mcp-server</a></td>
+  <td class="y">yes &mdash; <code>enabled_tools</code></td>
+  <td class="y">yes</td>
+  <td>&mdash;</td>
+  <td class="src">pkg/config/config.go:63-65</td>
+</tr>
+<tr>
+  <td><a href="https://github.com/supabase/mcp">supabase/mcp</a></td>
+  <td class="n">no</td>
+  <td class="n">no &mdash; rejected at call time</td>
+  <td>n/a</td>
+  <td class="src">mcp-server-supabase/src/server.ts:136-196</td>
+</tr>
+<tr>
+  <td><a href="https://github.com/getsentry/sentry-mcp">getsentry/sentry-mcp</a></td>
+  <td class="n">no &mdash; five groups only</td>
+  <td class="y">yes, at registration</td>
+  <td class="n">inconsistent by transport</td>
+  <td class="src">catalog-runtime/availability.ts:86, :147</td>
+</tr>
+<tr>
+  <td><a href="https://github.com/redis/mcp-redis">redis/mcp-redis</a></td>
+  <td class="n">none at all</td>
+  <td class="n">no filtering point exists</td>
+  <td>n/a</td>
+  <td class="src">src/common/server.py</td>
+</tr>
+</table>
+</div>
+
+<h3>supabase/mcp &mdash; documented behavior that no code performs</h3>
+
+<p>
+Write tools are registered unconditionally and throw when called:
+<code>if (readOnly) throw new Error('Cannot ... in read-only mode.')</code> in
+<code>mcp-server-supabase/src/tools/branching-tools.ts</code> at lines 166, 190, 201, 212
+and 225, and the same shape in <code>storage-tools.ts:106</code>,
+<code>database-operation-tools.ts:354</code>, <code>edge-function-tools.ts:135</code> and
+<code>account-tools.ts:266,288,299</code>. The tool callback in
+<code>mcp-server-supabase/src/server.ts:136-196</code> does no <code>readOnly</code>
+filtering whatsoever &mdash; the flag is passed down into each getter.
+</p>
+
+<p>The part worth reading twice is in <code>mcp-server-supabase/src/tools/util.ts:10-11</code>:</p>
+
+<pre><code>/** 'adapt' = stays available in read-only mode, adapts behavior.
+    'exclude' (default) = removed from tool list. */
+readOnlyBehavior?: 'exclude' | 'adapt';</code></pre>
+
+<p>
+The server never reads <code>readOnlyBehavior</code>. It is declared above, set once
+&mdash; on <code>execute_sql</code>, in
+<code>mcp-server-supabase/src/tools/database-operation-tools.ts:171</code> &mdash; and read
+only in <code>mcp-server-supabase/src/tools/tool-schemas.ts:147</code> and that file's
+test. <code>tool-schemas.ts</code> builds schemas for consumers rather than serving
+<code>tools/list</code>: following imports from the published entry point,
+<code>src/transports/stdio.ts</code>, reaches 34 files, and that is not one of them.
+"Removed from tool list" is documented in the source and does not happen.
+</p>
+
+<p>
+A filtering primitive does exist &mdash; two, in fact. <code>hidden: true</code> is
+declared one line below, at <code>util.ts:12-13</code>, and it is honored:
+<code>mcp-utils/src/server.ts:459</code> filters on it with
+<code>.filter(([, tool]) =&gt; !tool.hidden)</code>. So the server can already remove a
+tool from the inventory; read-only just doesn't use the mechanism.
+</p>
+
+<p>
+This is being fixed by someone else. <a href="https://github.com/supabase/mcp/pull/283">PR
+#283</a> adds a <code>listedTools</code> concept, hides mutating tools from read-only
+<code>tools/list</code>, and carries a regression test. It has maintainer review on it and
+is waiting on a re-review, so the right thing to do is stay out of its way.
+</p>
+
+<h3>Flux159/mcp-server-kubernetes &mdash; correct, and undiscoverable</h3>
+
+<p>A per-tool allowlist that takes precedence over every other flag, in <code>src/index.ts:93-104</code>:</p>
+
+<pre><code>const isToolAllowed = (name: string): boolean =&gt; {
+  if (explicitlyAllowedToolNames) {
+    return explicitlyAllowedToolNames.has(name);
+  }
+  if (allowOnlyReadonlyTools) {
+    return readonlyTools.some((t) =&gt; t.name === name);
+  }
+  if (nonDestructiveTools) {
+    return !destructiveTools.some((dt) =&gt; dt.name === name);
+  }
+  return true;
+};</code></pre>
+
+<p>
+It is an allowlist rather than a denylist, it is covered by tests
+(<code>tests/tool_restriction_enforcement.test.ts</code>), and it is applied in both
+places: the inventory is filtered at <code>src/index.ts:242</code>
+(<code>baseTools.filter((tool) =&gt; isToolAllowed(tool.name))</code>) and a call to a
+disallowed tool is refused at <code>:255</code>. Belt and braces, which is the right
+answer &mdash; filtering is what keeps the tool out of the model's plan, refusing is what
+catches a client that ignored the inventory. By the three distinctions above, this is the
+design you want.
+</p>
+
+<p>
+Until recently a misspelled tool name was a plain <code>Set</code> lookup and was dropped
+in silence &mdash; you believed you had granted a tool and you had not. That one is closed:
+unknown names now fail at startup with the list of valid ones
+(<code>src/index.ts:185-199</code>, from
+<a href="https://github.com/Flux159/mcp-server-kubernetes/pull/356">#356</a>, merged
+2026-07-28).
+</p>
+
+<p>
+One gap left: <code>ALLOWED_TOOLS</code> <em>replaces</em> the baseline instead of
+extending it, so there is no way to say "read-only, plus these two writes" without
+enumerating every read tool by hand.
+</p>
+
+<p>
+The discoverability problem is separate and, I think, larger: this feature is documented
+in <code>ADVANCED_README.md</code> and not in the main README. A survey by documentation
+&mdash; mine included &mdash; misses it, and so does a user.
+</p>
+
+<h3>containers/kubernetes-mcp-server &mdash; four levels, already built</h3>
+
+<p>
+<code>pkg/config/config.go:63-65</code> carries <code>EnabledTools</code>,
+<code>DisabledTools</code> and <code>ToolOverrides</code>, on top of the already-documented
+<code>--read-only</code>, <code>--disable-destructive</code> and <code>--toolsets</code>.
+Tests in <code>pkg/mcp/mcp_tools_test.go</code> and <code>pkg/config/config_test.go</code>.
+Documentation describes the three coarse levels; the fourth, per-tool one is in the code.
+</p>
+
+<h3>getsentry/sentry-mcp &mdash; a deliberate no</h3>
+
+<p>
+Granularity here is five skill groups, gated by <code>isAllowedBySkills</code> at
+<code>mcp-core/src/tools/catalog-runtime/availability.ts:86</code>. You cannot grant a
+single write tool: <code>triage</code> ships <code>add_issue_note</code> together with
+<code>update_issue</code>, and <code>project-management</code> is eight tools, seven of
+which write. stdio with no flags falls through to
+<code>finalSkills = new Set&lt;Skill&gt;(ACTIVE_SKILLS)</code>
+(<code>mcp-server/src/cli/resolve.ts:94</code>) &mdash; every active skill &mdash; so
+<code>update_issue</code> is in the default inventory.
+</p>
+
+<p>
+The filtering itself is done properly &mdash; at registration, not at call time. But the
+architecture has two surfaces: besides <code>tools/list</code> there is a meta-tool,
+<code>execute_sentry_tool</code>, declared in
+<code>mcp-core/src/tools/surfaces.ts:12</code> as infrastructure sitting outside the
+catalog, through which catalog tools are reachable without appearing in the inventory
+themselves.
+</p>
+
+<p>
+The two paths are worth tracing, because they converge and then diverge. Registration goes
+<code>getToolsForMcpRegistration</code> (<code>availability.ts:190</code>) &rarr;
+<code>getAvailableTools</code> (<code>:147</code>) &rarr; <code>.filter(isTopLevel)</code>.
+The meta-tool goes <code>execute-tool.ts:113</code> &rarr;
+<code>getSearchableTools</code> (<code>availability.ts:217</code>) &rarr; the same
+<code>getAvailableTools</code>. They share the gate and part company <em>after</em> it,
+which means a per-tool allowlist bolted onto the registration site leaves the execute path
+wide open. It has to go into <code>getAvailableTools</code> itself.
+</p>
+
+<p>
+Typo handling differs by transport: stdio throws on an invalid skill
+(<code>resolve.ts:83-89</code>), while the OAuth callback path drops invalid values
+without complaint (<code>mcp-cloudflare/src/server/oauth/routes/callback.ts</code>).
+</p>
+
+<p>
+Worth saying plainly, because it is a design position rather than an oversight: the
+maintainer has declined this model twice, in
+<a href="https://github.com/getsentry/sentry-mcp/issues/196">#196</a> and by closing a
+<code>--denied-tools</code> PR. The reasoning &mdash; that per-tool selection produces
+incoherent tool sets and that tool selection may belong upstream &mdash; is a real
+argument, and the open design issue
+<a href="https://github.com/getsentry/sentry-mcp/issues/941">#941</a> is where it is being
+had.
+</p>
+
+<h3>redis/mcp-redis &mdash; no control surface at all</h3>
+
+<p>
+Twenty-three CLI options and twenty-eight environment variables, all of them about
+connecting to Redis; none about tools. Registration is nineteen lines in
+<code>src/common/server.py</code>: <code>pkgutil.iter_modules</code> imports every module
+under <code>src.tools</code> and the <code>@mcp.tool()</code> decorators register
+everything unconditionally. Between tool definition and <code>tools/list</code> there is
+no filtering point. There is no call-time rejection either.
+</p>
+
+<p>
+Worth being precise about which FastMCP this is, because the answer changes what's
+available. The import is <code>from mcp.server.fastmcp import FastMCP</code> &mdash; the
+one bundled with the official Python SDK (<code>mcp[cli]</code>, 1.28.1 in the lockfile),
+not the standalone <code>fastmcp</code> 2.x package with its tag system and per-tool
+<code>enabled</code> flag. In the bundled version the path runs straight through:
+<code>ToolManager.list_tools()</code> returns <code>list(self._tools.values())</code>
+(<code>tool_manager.py:41-43</code>), <code>FastMCP.list_tools()</code> maps that one to
+one (<code>server.py:315-330</code>), and there is no predicate anywhere along it. So
+"just use FastMCP's tags" is not an answer here; the framework this server actually
+imports has nothing to filter with.
+</p>
+
+<p>
+53 tools &mdash; I counted the <code>@mcp.tool()</code> decorators &mdash; a good half of
+them writes. The irreversible ones are <code>delete</code>,
+<code>json_del</code>, <code>hdel</code>, <code>xdel</code>, <code>srem</code>,
+<code>zrem</code>, <code>lrem</code>, <code>lpop</code>/<code>rpop</code> and
+<code>xgroup_destroy</code>. Two deserve special mention: <code>expire</code>, which is
+deletion on a timer and reads as harmless, and <code>rename</code>, which overwrites the
+destination key without a word.
+</p>
+
+<p>
+For accuracy in the other direction: there is no <code>FLUSHDB</code>,
+<code>FLUSHALL</code>, <code>CONFIG SET</code>, <code>EVAL</code> or <code>KEYS</code> tool.
+The blast radius is per-key, not "drop the database in one call". It is
+<code>scan_all_keys</code> plus <code>delete</code> that makes it interesting.
+</p>
+
+<p>
+The README recommends Redis ACLs. That is the pattern this page is about: the tool stays
+in the inventory, the agent plans a write, and <code>NOPERM</code> arrives as a string
+afterwards. ACLs are also scoped to Redis commands rather than MCP tools, and are
+unavailable on some managed instances.
+</p>
+
+<h2>What I got wrong</h2>
+
+<p>
+I started this with a documentation survey of sixteen servers and a headline number:
+twelve of fifteen with a write surface had no per-tool allowlist. It made a good sentence.
+Then I read code for five of them, and three of the five did not match:
+</p>
+
+<ul>
+  <li><strong>Flux159</strong> &mdash; recorded as a single binary toggle. Has had a full
+      per-tool allowlist all along, documented in the advanced README only.</li>
+  <li><strong>containers</strong> &mdash; recorded as group-level. Has
+      <code>enabled_tools</code> per name in the config struct.</li>
+  <li><strong>supabase</strong> &mdash; the hole was real, but I had it filed as unclaimed
+      when there was already a live PR with maintainer review on it.</li>
+</ul>
+
+<p>
+So: <strong>twelve of fifteen is wrong and I am not going to repeat it.</strong> The real
+number is smaller and I do not know what it is, because knowing it means reading ten more
+codebases.
+</p>
+
+<p>
+The mistake is more interesting than the number, though, and it points the same direction
+from the other side. Documentation lags code in <em>both</em> directions here &mdash;
+features exist and are unlisted, and features are listed and do not exist. The best-known
+case is not mine:
+<a href="https://github.com/github/github-mcp-server/issues/2156">github-mcp-server#2156</a>,
+where <code>--read-only</code> was documented, shipped, and did not restrict write tools
+over the new http transport &mdash; <code>create_branch</code>,
+<code>create_pull_request</code> and <code>merge_pull_request</code> were all reachable
+with the flag on.
+</p>
+
+<p>
+If you are relying on one of these flags for anything that matters, the honest advice is
+the inconvenient one: call <code>tools/list</code> against your own configuration and read
+what comes back. That is the only source of truth in this stack today.
+</p>
+
+<h2>What I could not find</h2>
+
+<p>
+Any public report of an agent destroying something through an over-broad MCP tool surface.
+Not one, in issue trackers or anywhere else.
+</p>
+
+<p>
+So the demand here is precautionary, not post-mortem: engineers asking for the lever
+before the accident rather than after it. That weakens the case for urgency, and it is
+worth saying so rather than reaching for a hypothetical disaster. Everything above is an
+argument about defaults and blast radius, not a report of harm.
+</p>
+
+<p>
+Second gap, wider than the first and outside this page's scope: <strong>server-side call
+logging effectively does not exist.</strong> Of the servers I have looked at, one records
+tool invocations, and it does so in a vendor cloud rather than in the server. Platform
+audit logs catch what reached the API; a call shaped or dropped at the MCP layer is not
+there. I have not investigated this properly and am not going to claim more.
+</p>
+
+<h2>The shape of the patch</h2>
+
+<p>
+One sentence, portable across projects: <strong>deny writes by default, grant write tools
+by name, and filter the unnamed ones out of <code>tools/list</code> rather than rejecting
+them at call time &mdash; and refuse to start on an unknown name.</strong>
+</p>
+
+<p>
+Where I've written it out, in case a concrete diff is more useful than a description:
+</p>
+
+<ul>
+  <li><a href="https://github.com/chigwell/telegram-mcp/pull/168">chigwell/telegram-mcp#168</a>
+      &mdash; <code>read-only+send_message,reply_to_message</code>: a read-only baseline
+      plus named writes, so the coherent read set stays as the maintainer composed it.
+      Unnamed write tools are never registered. Merged.</li>
+  <li><a href="https://github.com/Flux159/mcp-server-kubernetes/pull/356">Flux159/mcp-server-kubernetes#356</a>
+      &mdash; the narrow startup-validation case described above, on a mechanism that was
+      already there. Merged.</li>
+  <li><a href="https://github.com/redis/mcp-redis/pull/161">redis/mcp-redis#161</a>
+      &mdash; proposed, not merged. <code>MCP_REDIS_ALLOWED_TOOLS</code> where there was
+      no control at all: unnamed tools removed from the registry through the public
+      <code>remove_tool</code> API, unknown names fatal at startup, unset means behavior
+      is unchanged. Whether this is the right shape for that codebase is the maintainer's
+      call, and it hasn't been made yet.</li>
+</ul>
+
+<p>
+None of this is clever, which is the point. It runs from four lines to a few dozen
+depending on the codebase, plus a test asserting that an unnamed write tool is absent
+from <code>tools/list</code>.
+</p>
+
+<h2>Method, and corrections</h2>
+
+<p>
+Six servers read at the commits above on 2026-07-29. Claims are per file and line so they
+can be checked or falsified &mdash; every line reference on this page was opened at the
+listed commit rather than carried over from notes, which is how two stale ones and a set
+of wrong paths were caught before publishing. Servers I have only read documentation for
+are deliberately not in the table; that is how the first version of this page went wrong.
+</p>
+
+<p>
+If a row is wrong, or your server does this properly and is not listed, please
+<a href="https://github.com/cyb3ralbert/cyb3ralbert.github.io/issues">open an issue</a> and
+I will fix it and say what changed. The table is dated because it will go stale; three of
+its rows were already stale in someone else's survey.
+</p>
+
+<footer>
+&copy; 2026 cyb3ralbert &middot; <a href="https://github.com/cyb3ralbert">github.com/cyb3ralbert</a>
+&middot; <a href="/">more writing</a>
+</footer>
+
+</main>
+</body>
+</html>
