@@ -76,13 +76,23 @@ turned out to be wrong.
 
 <h2>Now</h2>
 <div class="now">
-Tool-level permissions in MCP servers &mdash; which tools a server actually hands to an
-agent, and how to hand over fewer. Small patches upstream, one server at a time, and
-<a href="/mcp-tool-exposure/">notes from reading six of them</a>.
+Bitcoin Core, and what it takes to establish a claim a reviewer would otherwise have to take
+on faith &mdash; starting with
+<a href="/comparison-that-cannot-fail/">64 test vectors and the comment that cites them</a>.
+Alongside it, Kubernetes from scratch on a local hypervisor.
 </div>
 
 <h2>Writing</h2>
 <ul class="list">
+  <li>
+    <div class="title"><a href="/comparison-that-cannot-fail/">A comparison that cannot fail is not a check</a></div>
+    <div class="desc">
+      A comment in a Bitcoin Core test file cites a URL that redirects instead of 404ing.
+      Establishing that the replacement holds the same 64 vectors took four independent
+      supports &mdash; and two negative controls to show the comparison could fail at all.
+    </div>
+    <div class="date">2026-08-28</div>
+  </li>
   <li>
     <div class="title"><a href="/mcp-tool-exposure/">What MCP servers actually expose</a></div>
     <div class="desc">

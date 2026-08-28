@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A comparison that cannot fail is not a check</title>
+<meta name="description" content="A comment in a Bitcoin Core test file says 64 numbers came from a URL that no longer serves a file. Establishing that a replacement points at the same numbers took four independent supports — and two negative controls to prove the comparison could fail at all.">
+<link rel="canonical" href="https://cyb3ralbert.github.io/comparison-that-cannot-fail/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="A comparison that cannot fail is not a check">
+<meta property="og:description" content="64 test vectors, a URL that redirects instead of 404ing, and what it takes to show that two arrays of numbers are the same array.">
+<meta property="og:url" content="https://cyb3ralbert.github.io/comparison-that-cannot-fail/">
+<meta property="article:published_time" content="2026-08-28">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="A comparison that cannot fail is not a check">
+<meta name="twitter:description" content="64 test vectors, a URL that redirects instead of 404ing, and what it takes to show that two arrays of numbers are the same array.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "A comparison that cannot fail is not a check",
+  "description": "64 test vectors, a URL that redirects instead of 404ing, and what it takes to show that two arrays of numbers are the same array.",
+  "datePublished": "2026-08-28",
+  "author": { "@type": "Person", "name": "cyb3ralbert", "url": "https://github.com/cyb3ralbert" },
+  "url": "https://cyb3ralbert.github.io/comparison-that-cannot-fail/"
+}
+</script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-panel: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --code-bg: #0a0d12;
+    --warn: #d29922;
+    --ok: #3fb950;
+    --bad: #f85149;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.65;
+  }
+  main { max-width: 820px; margin: 0 auto; padding: 3rem 1.25rem 5rem; }
+  h1 { font-size: 1.9rem; line-height: 1.3; margin-bottom: 0.25rem; }
+  .meta { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 2rem; }
+  .lede { font-size: 1.05rem; color: var(--text); }
+  h2 { font-size: 1.3rem; margin-top: 2.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+  h3 { font-size: 1.05rem; margin-top: 2rem; margin-bottom: 0.4rem; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 4px;
+    padding: 0.1em 0.4em; font-size: 0.88em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 1rem 1.1rem; overflow-x: auto; font-size: 0.85rem;
+  }
+  pre code { background: none; border: none; padding: 0; }
+  blockquote {
+    border-left: 3px solid var(--accent); margin: 1rem 0; padding: 0.3rem 1rem;
+    color: var(--text-dim); background: var(--bg-panel); border-radius: 0 6px 6px 0;
+  }
+  .note {
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-left: 3px solid var(--warn); border-radius: 0 6px 6px 0;
+    padding: 0.8rem 1.1rem; margin: 1.4rem 0; font-size: 0.95rem;
+  }
+  .src { font-size: 0.8rem; color: var(--text-dim); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  table { border-collapse: collapse; width: 100%; margin: 1.2rem 0; font-size: 0.9rem; }
+  th, td { border: 1px solid var(--border); padding: 0.5rem 0.7rem; text-align: left; vertical-align: top; }
+  th { background: var(--bg-panel); color: var(--text-dim); font-weight: 600; }
+  .table-wrap { overflow-x: auto; }
+  footer {
+    margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--border);
+    color: var(--text-dim); font-size: 0.85rem;
+  }
+  .nav-top { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 2rem; }
+</style>
+</head>
+<body>
+<main>
+
+<p class="nav-top"><a href="/">cyb3ralbert</a> / comparison-that-cannot-fail</p>
+
+<h1>A comparison that cannot fail is not a check</h1>
+<p class="meta">cyb3ralbert &middot; 2026-08-28</p>
+
+<p class="lede">
+A week earlier I had been working through the first chapter of a computer architecture
+textbook &mdash; positional notation, why octal and hex exist, binary arithmetic, truth
+tables. Then I opened <code>src/test/hash_tests.cpp</code> in Bitcoin Core, where a comment
+says 64 numbers are SipHash-2-4 output taken from a particular URL. The URL no longer serves
+that file. Proposing a replacement meant showing the new address points at the same numbers
+&mdash; and that turned out to be the part worth writing down, because a comparison of two
+arrays says nothing until you know it is capable of coming out unequal.
+</p>
+
+<h2>What the comment claimed</h2>
+
+<p>
+Above the array, three claims in four lines, as the file stood then: these are SipHash-2-4
+outputs, produced with a specific key and a specific series of inputs, and they came from here.
+</p>
+
+<pre><code>/* SipHash-2-4 output with
+   k = 00 01 02 ...
+   and
+   in = (empty string)
+   in = 00 (1 byte)
+   in = 00 01 (2 bytes)
+   in = 00 01 02 (3 bytes)
+   ...
+   in = 00 01 02 ... 3e (63 bytes)
+
+   from: https://131002.net/siphash/siphash24.c
+*/
+uint64_t siphash_4_2_testvec[] = {
+    0x726fdb47dd0e0e31, ...</code></pre>
+<p class="src">
+&mdash; <code>src/test/hash_tests.cpp</code> at <code>f7253703</code>, the state described throughout
+this piece. That line now carries the replacement URL; the edit is at the end.
+</p>
+
+<h2>The link is not a 404, which is exactly the problem</h2>
+
+<p>
+It would be easier if it were. A dead host announces itself. This one answers:
+</p>
+
+<pre><code>https://131002.net/siphash/siphash24.c        301 -> https://aumasson.jp/    (site root, not a file)
+https://www.aumasson.jp/siphash/siphash24.c   404
+https://www.aumasson.jp/siphash/              200</code></pre>
+
+<p>
+<code>131002.net</code> is the old domain of Jean-Philippe Aumasson, SipHash's co-author, and
+the redirect lands on his personal page. Follow the reference the way a reader would &mdash;
+click it, get an HTTP 200 &mdash; and you arrive somewhere that cannot tell you where the
+numbers came from. The one surviving <code>/siphash/</code> section on the new domain consists
+of a single sentence, which is the domain owner naming the destination himself rather than me
+guessing it:
+</p>
+
+<blockquote>
+The SipHash page and documentation has moved to <a href="https://github.com/veorq/SipHash/blob/master/README.md">GitHub</a>
+<br><span class="src">&mdash; www.aumasson.jp/siphash/, the entire page</span>
+</blockquote>
+
+<div class="note">
+<strong>A link checker does not catch this.</strong> The chain terminates in a 200, so any
+tool that grades links by status code passes it. Core's own link linter would have missed it
+for two independent reasons: <code>mlc</code> parses markdown and HTML, so a <code>.cpp</code>
+file is outside its selection entirely, and it runs <code>--offline</code> in CI, so external
+URLs are not fetched at all either way. This category &mdash;
+the reference that resolves but no longer refers &mdash; is only found by following it and
+asking whether the destination still supports the claim.
+</div>
+
+<h2>The chapter had already covered it</h2>
+
+<p>
+The gap between a first-chapter textbook and a cryptographic hash in production is where I
+expected to spend the day. There was no gap. Four things I had read the week before were the
+entire toolkit:
+</p>
+
+<p>
+<strong>One law for every base.</strong> <code>M = &Sigma; d&#7522;&middot;b&#8305;</code> covers
+decimal, binary, octal, hex. Only <code>b</code> changes; everything else in the chapter is a
+consequence.
+</p>
+
+<p>
+<strong>Why 8 and 16, not 7 and 12.</strong> <code>8 = 2&sup3;</code> and
+<code>16 = 2&#8308;</code>, so a group of digits maps onto whole bits with no carry between
+groups. That is the reason the same value is legible as <code>0x726fdb47dd0e0e31</code> and as
+<code>0x31, 0x0e, 0x0e, 0xdd, 0x47, 0xdb, 0x6f, 0x72</code> &mdash; sixteen hex digits in one
+group, or eight groups of two. Core stores these vectors as 64-bit words; the reference project
+stores them as bytes. Same quantity, different grouping, and the whole comparison depends on
+noticing that.
+</p>
+
+<p>
+<strong>Little-endian is that same formula with base 256.</strong> A byte is a digit, byte order
+is digit order, and <code>int.from_bytes(b, 'little')</code> literally computes
+<code>&Sigma; byte&#7522;&middot;256&#8305;</code>. This is not an analogy; it is the same
+arithmetic one level up.
+</p>
+
+<p>
+<strong>SipHash is built from three operations on the chapter's last page.</strong> Add, rotate,
+XOR &mdash; the ARX class. The round function has nothing else in it:
+</p>
+
+<pre><code>v0 = (v0 + v1) &amp; M;  v1 = rotl(v1, 13);  v1 ^= v0;  v0 = rotl(v0, 32)
+v2 = (v2 + v3) &amp; M;  v3 = rotl(v3, 16);  v3 ^= v2
+v0 = (v0 + v3) &amp; M;  v3 = rotl(v3, 21);  v3 ^= v0
+v2 = (v2 + v1) &amp; M;  v1 = rotl(v1, 17);  v1 ^= v2;  v2 = rotl(v2, 32)</code></pre>
+
+<p>
+Addition modulo 2&#8310;&#8308;, circular shift, XOR. Between the truth table for XOR in a
+first-year textbook and a keyed hash used in production there are no intermediate floors. I am
+not claiming to have learned cryptography here &mdash; the opposite. Nothing in this task
+required understanding SipHash as cryptography. It required being able to compute it.
+</p>
+
+<h2>There is no successor file</h2>
+
+<p>
+The tempting move is to say the file moved and link to it at its new home. That would be wrong.
+The file on the website in 2012 was self-contained &mdash; implementation, vectors and test in
+one <code>siphash24.c</code>. In the author's repository it came apart:
+</p>
+
+<div class="table-wrap">
+<table>
+<tr><th>When</th><th>What happened</th></tr>
+<tr><td>2012</td><td>The site serves <code>siphash24.c</code>: implementation + <code>u8 vectors[64][8]</code> + <code>test_vectors()</code> in a single file</td></tr>
+<tr><td>2016-12-16</td><td>The repository's own <code>siphash24.c</code> &mdash; a different file, whose vectors lived in <code>main.c</code> &mdash; is removed; the implementation becomes <code>siphash.c</code>, the harness becomes <code>test.c</code></td></tr>
+<tr><td>2016-12-17</td><td>The numbers are split out into their own generated <code>vectors.h</code></td></tr>
+</table>
+</div>
+
+<p>
+So one file became three, and no single one of them is the successor. Which one belongs in this
+comment is decided by what the comment says: <code>from:</code>, attached to an array of numbers,
+answers <em>where these numbers came from</em>, not <em>where the algorithm lives</em>.
+<code>siphash.c</code> contains zero vectors. The honest replacement is
+<a href="https://github.com/veorq/SipHash/blob/master/vectors.h"><code>vectors.h</code></a>:
+same project, same author, same array &mdash; not the same file.
+</p>
+
+<h2>Four supports, none of which rely on each other</h2>
+
+<p>
+The claim to establish: the 64 numbers in the Core tree are the same 64 numbers the new
+reference holds, and both are genuinely SipHash-2-4 output for the stated parameters.
+</p>
+
+<p>
+<strong>1. Byte-for-byte against the replacement.</strong> Extract
+<code>siphash_4_2_testvec[]</code> from the tree and <code>vectors_sip64</code> from
+<code>vectors.h</code>, normalise both to <code>uint64_t</code>, compare:
+<code>n=64, mismatches=0</code>. First value <code>0x726fdb47dd0e0e31</code>, last
+<code>0x958a324ceb064572</code>.
+</p>
+
+<p>
+<strong>2. Against a build of the reference, not just its checked-in file.</strong> Clone,
+<code>make</code>, run both binaries. <code>./test</code> reports OK for all four variants,
+<code>SipHash-2-4-64</code> among them; a build with <code>-DGETVECTORS</code> regenerates the
+vectors, and the
+regenerated output matches Core with <code>mismatches=0</code>. This distinguishes "two files
+contain the same text" from "these numbers are what the algorithm produces".
+</p>
+
+<p>
+<strong>3. Against an implementation with no shared ancestry.</strong> A short Python
+implementation written from the algorithm description &mdash; no code from the reference, none
+from Core &mdash; run over the same parameters (<code>k = 00 01 &hellip; 0f</code>, inputs being the prefixes of
+<code>00 01 02 &hellip;</code> of length 0 to 63). All 64 agree. At this point the claim no longer
+depends on either file being trustworthy.
+</p>
+
+<p>
+<strong>4. Against the file the dead link used to serve.</strong> Two Wayback snapshots of the
+old URL, 2013 and 2020, are byte-identical to each other (sha256 <code>6d300e01&hellip;</code>).
+The header reads "SipHash reference C implementation, Written in 2012 by Jean-Philippe Aumasson
+and Daniel J. Bernstein"; from line 143, <code>u8 vectors[64][8]</code>, beginning
+<code>{ 0x31, 0x0e, 0x0e, 0xdd, 0x47, 0xdb, 0x6f, 0x72, }</code>. Both snapshots agree with the
+Core array on all 64 values. That closes the chain at the far end &mdash; the old reference and
+the new one carry the same numbers, so the edit preserves what the comment was pointing at:
+</p>
+
+<pre><code>archived siphash24.c  =  hash_tests.cpp  =  vectors.h  =  SipHash-2-4 output</code></pre>
+
+<p class="src">
+One practical note: the 2020 snapshot is served gzipped, and without <code>--compressed</code>
+you save the compressed bytes to disk and your parser reads garbage. Half an hour.
+</p>
+
+<h2>Making sure the comparison could fail</h2>
+
+<p>
+Everything above produced <code>mismatches=0</code> four times, and four zeros from a comparison
+that is structurally incapable of producing anything else is not evidence &mdash; it is a
+tautology with good manners. Two controls, both of which had to come out non-zero:
+</p>
+
+<pre><code>negative control (interpret bytes as big-endian):  64 of 64 differ
+negative control (shift the array by one):         64 of 64 differ</code></pre>
+
+<p>
+And one specifically for support #2, since regenerating vectors would prove nothing if the
+generator were reading the file it claims to compute. Under <code>#ifdef GETVECTORS</code> the
+harness prints the <code>out</code> buffer after calling <code>siphash()</code>; the stored
+<code>vectors_sip64</code> array is only read in the <code>#else</code> branch. The generating
+path never touches the numbers it is generating.
+</p>
+
+<div class="note">
+<strong>Ask of any check you rely on: what would make it fail?</strong> If you cannot answer with
+a specific input that flips it red, the green is decorative. This applies well beyond hash
+vectors &mdash; a test with the assertion commented out, a CI job whose script exits 0 before
+reaching the work, a diff comparison run against the wrong branch. All of them report success,
+correctly, about nothing.
+</div>
+
+<h2>What went upstream</h2>
+
+<p>
+One line.
+</p>
+
+<pre><code>-   from: https://131002.net/siphash/siphash24.c
++   from: https://github.com/veorq/SipHash/blob/master/vectors.h</code></pre>
+
+<p>
+The ratio is the point: everything above exists so that a reviewer does not have to take a
+one-line diff on faith, and so that the sentence "these are the same numbers" is something I
+had actually verified rather than assumed. The approving review was a
+<code>tested ACK</code> &mdash; the reviewer reproduced the comparison rather than reading it.
+</p>
+
+<p class="src">
+Merged in <a href="https://github.com/bitcoin/bitcoin/pull/35995">bitcoin/bitcoin#35995</a>
+&middot; ACKs from l0rinc (tested) and maflcko &middot; merged by fanquake
+</p>
+
+<h2>What I'd take from it</h2>
+
+<p>
+<strong>Green means nothing until you know what red looks like.</strong> The negative controls
+cost ten minutes and were the only reason the four zeros meant anything. Any comparison written
+to confirm something will confirm it; you learn whether it discriminates by feeding it something
+wrong on purpose.
+</p>
+
+<p>
+<strong>A reference can resolve and still be broken.</strong> Status codes grade the host, not
+the claim. The interesting failures live where the URL answers, the page loads, and the thing it
+was cited for is no longer there &mdash; which is why no linter in the pipeline was ever going to
+flag this line.
+</p>
+
+<p>
+<strong>Learning from the bottom paid off within a week, unprompted.</strong> I did not pick this
+task to apply the chapter; the chapter turned out to be the whole toolkit. The known risk of
+starting at the bottom is spending a year in fundamentals and never arriving at the work, and I
+don't think reading protects you from that &mdash; touching real code at regular intervals does.
+Here the interval happened to be seven days.
+</p>
+
+<footer>
+&copy; 2026 cyb3ralbert &middot;
+<a href="/">home</a> &middot;
+<a href="https://github.com/cyb3ralbert">github</a> &middot;
+<a href="mailto:cyberalbert@protonmail.ch">email</a>
+</footer>
+
+</main>
+</body>
+</html>
