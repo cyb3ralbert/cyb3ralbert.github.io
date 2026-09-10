@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kubernetes The Hard Way: the four machines it does not build</title>
+<meta name="description" content="The tutorial asks for four Debian 12 machines and says nothing about where they come from. A libvirt cloud-image stand that builds them — the five ways a cloud image refuses to boot on a real host, and the RAM the labs actually need: 768 MiB, measured across all thirteen.">
+<link rel="canonical" href="https://kramgasse.com/chapter-zero/">
+<link rel="alternate" type="application/atom+xml" title="Checked against source" href="https://kramgasse.com/feed.xml">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes The Hard Way: the four machines it does not build">
+<meta property="og:description" content="Five ways a cloud image refuses to boot on a real host, and the RAM the thirteen labs actually need — 768 MiB, not the 2048 in the spec.">
+<meta property="og:url" content="https://kramgasse.com/chapter-zero/">
+<meta property="article:published_time" content="2026-09-10">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Kubernetes The Hard Way: the four machines it does not build">
+<meta name="twitter:description" content="Five ways a cloud image refuses to boot on a real host, and the RAM the thirteen labs actually need — 768 MiB, not the 2048 in the spec.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Kubernetes The Hard Way starts at lab 01. This is chapter zero.",
+  "description": "A libvirt cloud-image stand for the four machines Kubernetes The Hard Way asks for: the five ways a cloud image refuses to boot on a real host, and the RAM the thirteen labs actually need.",
+  "datePublished": "2026-09-10",
+  "author": { "@type": "Person", "name": "cyb3ralbert", "url": "https://github.com/cyb3ralbert" },
+  "url": "https://kramgasse.com/chapter-zero/"
+}
+</script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-panel: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --code-bg: #0a0d12;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.65;
+  }
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 3rem 1.25rem 5rem;
+  }
+  h1 {
+    font-size: 1.9rem;
+    line-height: 1.3;
+    margin-bottom: 0.25rem;
+  }
+  .meta {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 2.5rem;
+  }
+  .nav-top { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 2rem; }
+  h2 {
+    font-size: 1.3rem;
+    margin-top: 2.5rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.4rem;
+  }
+  h3 { font-size: 1.05rem; margin-top: 2rem; margin-bottom: 0.3rem; }
+  p, li { color: var(--text); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.1em 0.4em;
+    font-size: 0.88em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+    overflow-x: auto;
+    font-size: 0.85rem;
+  }
+  pre code {
+    background: none;
+    border: none;
+    padding: 0;
+  }
+  .symptom {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid #d29922;
+    border-radius: 0 6px 6px 0;
+    padding: 0.8rem 1.1rem;
+    margin: 1rem 0;
+    font-size: 0.95rem;
+  }
+  .symptom strong { color: var(--text); }
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--border);
+  }
+  th { background: var(--bg-panel); }
+</style>
+</head>
+<body>
+<main>
+
+<p class="nav-top"><a href="/">Checked against source</a> / chapter-zero</p>
+
+<h1>Kubernetes The Hard Way starts at lab 01. This is chapter zero.</h1>
+<p class="meta">cyb3ralbert &middot; 2026-09-10 &middot; <a href="https://kramgasse.com/">&larr; other posts</a></p>
+
+<p>
+Kelsey Hightower's
+<a href="https://github.com/kelseyhightower/kubernetes-the-hard-way">Kubernetes The Hard Way</a>
+opens by asking for four Debian 12 machines &mdash; a jumpbox, a server, two nodes &mdash;
+and then says nothing more about where they come from. Every lab after that is written
+carefully enough that you can follow it with a terminal and a coffee. Lab zero does not
+exist.
+</p>
+
+<p>
+On a cloud provider that gap is a form and a credit card. On your own host it is an
+afternoon, and the afternoon is not spent on Kubernetes. It is spent on a VM that boots
+to a blinking cursor, or comes up with no IP address, or refuses to let you log in as
+the user cloud-init was supposed to create.
+</p>
+
+<p>
+<a href="https://github.com/cyb3ralbert/chapter-zero">chapter-zero</a> is that missing
+part and only that part: cloud images, overlays and cloud-init on local
+<code>virsh</code>/libvirt, producing four machines built to the lab 01 spec. What follows
+is what it took to get there &mdash; every failure below showed up on a real host, and none
+of them are visible from reading documentation.
+</p>
+
+<h2>What the spec asks for, and what the labs need</h2>
+
+<p>
+The tutorial's table is a spec, not a measurement. The stand defaults to it, because
+defaults should match what the reader was told:
+</p>
+
+<table>
+<tr><th>Machine</th><th>Guest hostname</th><th>IP</th><th>RAM</th><th>Disk</th></tr>
+<tr><td><code>kthw-jumpbox</code></td><td><code>jumpbox</code></td><td><code>.120</code></td><td>512</td><td>10G</td></tr>
+<tr><td><code>kthw-server</code></td><td><code>server</code></td><td><code>.121</code></td><td>2048</td><td>20G</td></tr>
+<tr><td><code>kthw-node-0</code></td><td><code>node-0</code></td><td><code>.122</code></td><td>2048</td><td>20G</td></tr>
+<tr><td><code>kthw-node-1</code></td><td><code>node-1</code></td><td><code>.123</code></td><td>2048</td><td>20G</td></tr>
+</table>
+
+<p>
+That is 6.5 GiB of RAM, which on a 16 GiB laptop means closing everything else first.
+So the obvious question: is 2048 MiB per node what the labs need, or what the spec says?
+</p>
+
+<p>
+The only way to answer it is to walk the tutorial end to end on a smaller stand and see
+where it breaks. It does not break at 768 MiB. All thirteen labs &mdash; certificates,
+etcd, the control plane, kubelet and kube-proxy, pod networking, smoke tests &mdash; run
+through on 768 MiB and a 10G disk per machine. At 512 MiB they do not.
+</p>
+
+<pre><code>KTHW_NODE_MEMORY=768 KTHW_NODE_DISK=10G bin/kthw-stand-up</code></pre>
+
+<p>
+That puts the whole stand at 2.75 GiB instead of 6.5 &mdash; the difference between
+"close your browser" and "leave everything open". The number is a measurement of one
+run of one tutorial, not a general claim about Kubernetes: a real cluster with real
+workloads on 768 MiB nodes is a different question and this is not evidence about it.
+</p>
+
+<p>
+One side effect worth knowing: the distro registry sets a 1024 MiB floor for Debian, so
+each machine prints <code>Warning: ... wants at least 1024 MiB</code>. It is a warning,
+not a refusal, and the stand comes up anyway.
+</p>
+
+<h2>Five ways a cloud image refuses to boot</h2>
+
+<p>
+A cloud image is built to boot on a hypervisor that was configured by someone else.
+Locally you are that someone else, and the defaults you get from
+<code>virt-install</code> are not the ones the image assumes. Each of these cost real
+time, and each has a symptom that points somewhere other than the cause.
+</p>
+
+<h3>1. The seed device the kernel cannot see</h3>
+
+<div class="symptom">
+<strong>Symptom:</strong> the VM boots, the serial console works, and it never gets an
+IP address. cloud-init reports no datasource.
+</div>
+
+<p>
+NoCloud seeds are usually attached as a cdrom, and that is what most examples show.
+Debian and Ubuntu <em>genericcloud</em> kernels have no cdrom driver &mdash; the image
+is built for virtio-only environments &mdash; so the seed is invisible, cloud-init finds
+no user-data, and the machine comes up with no SSH key, no user and no network config.
+The seed goes on a virtio disk instead. Rocky documents a cdrom and its kernel has the
+driver, so the seed device is a per-distro property, not a global choice:
+</p>
+
+<pre><code>DISTRO_SEED_DEVICE="disk"    # debian, ubuntu — genericcloud, no cdrom driver
+DISTRO_SEED_DEVICE="cdrom"   # rocky</code></pre>
+
+<h3>2. GRUB waiting for a screen that does not exist</h3>
+
+<div class="symptom">
+<strong>Symptom:</strong> a VM burning 100% of a core, an empty serial console, no DHCP
+lease, indefinitely. Nothing has crashed; nothing is happening.
+</div>
+
+<p>
+<code>--graphics none</code> gives the guest no video device at all, which is the
+sensible thing to want for a headless lab machine. Rocky's GRUB hangs before it emits a
+single character in that configuration. Debian and Ubuntu boot fine headless, so the
+first three VMs work and the fourth does not, which makes the cause look like anything
+except the video device. Rocky gets <code>vga</code>; the others get <code>none</code>.
+</p>
+
+<h3>3. The admin group that does not exist</h3>
+
+<div class="symptom">
+<strong>Symptom:</strong> the VM boots and gets an IP, and SSH rejects you. There is no
+account to log into.
+</div>
+
+<p>
+cloud-init is asked to create the admin user with a supplementary group &mdash;
+<code>sudo</code> on Debian and Ubuntu. RHEL rebuilds use <code>wheel</code>. If the
+group does not exist, cloud-init does not fall back and does not warn loudly: it fails
+to create the user at all, and you get a running machine with no way in. The group is a
+property of the distro, next to the image URL and the login name.
+</p>
+
+<h3>4. A "safe" CPU model that is too safe</h3>
+
+<div class="symptom">
+<strong>Symptom:</strong> Rocky 10 and RHEL 10 guests will not run. Debian and Ubuntu do
+not care, so the host looks fine.
+</div>
+
+<p>
+<code>--cpu host</code> does not mean "pass the host CPU through". It lets libvirt pick a
+named model it considers safe, and on this host that resolved to <code>Denverton</code>
+&mdash; x86-64-v2, no AVX2. Rocky 10 and RHEL 10 require x86-64-v3 and will not run on
+it. <code>host-passthrough</code> is both the fix and what <code>virt-manager</code>
+creates by default, which is a good sign that the "safe" default is the odd one out.
+</p>
+
+<h3>5. The connection URI that answers about a different host</h3>
+
+<div class="symptom">
+<strong>Symptom:</strong> <code>ssh host 'bin/vm-ip node1'</code> reports an empty host
+with no VMs on it, while the same command in an interactive shell on that host works.
+</div>
+
+<p>
+libvirt has two system connections: <code>qemu:///system</code>, where the daemon runs
+the VMs, and <code>qemu:///session</code>, a per-user instance. A non-interactive SSH
+command reads the shell's environment, not the profile that usually exports
+<code>LIBVIRT_DEFAULT_URI</code>, so it asks the session instance &mdash; which
+truthfully answers that it has no VMs. Nothing errors. The scripts set the URI
+themselves rather than trusting the environment.
+</p>
+
+<h2>Two things the stand does that the tutorial does not</h2>
+
+<p>
+Everything above is plumbing. These two are judgement calls, and both exist because
+skipping them costs the reader a debugging session that teaches nothing about
+Kubernetes.
+</p>
+
+<p>
+<strong><code>manage_etc_hosts: false</code>.</strong> cloud-init rewrites
+<code>/etc/hosts</code> from a template on every boot. Lab 03 has you add an entry per
+machine to that file. Under a default profile those entries survive until the first
+reboot and then vanish, and the cluster comes apart by name with nothing obvious to
+blame &mdash; the file you edited yesterday no longer contains what you put in it. The
+jumpbox gets the same treatment, because lab 03 writes to its <code>/etc/hosts</code>
+too.
+</p>
+
+<p>
+<strong><code>net.ipv4.ip_forward=1</code>.</strong> Lab 11 routes pod subnets between
+the nodes. Note what is <em>not</em> there: <code>br_netfilter</code> and the bridge-nf
+sysctls are kubeadm's requirements, not this tutorial's, and the kthw profile leaves
+them out. A stand that quietly pre-satisfies requirements the tutorial never stated is a
+stand that hides part of the lesson.
+</p>
+
+<h2>Where the stand stops</h2>
+
+<p>
+The boundary is the point of the whole thing: the stand hands over four machines built
+to lab 01 and stops there. It prints <code>machines.txt</code> in lab 03's format and
+writes it next to the cluster, but it does not copy it to the jumpbox &mdash; that is a
+lab 03 step, and so are root SSH, the FQDNs and the shared <code>/etc/hosts</code>.
+</p>
+
+<p>
+The test of that boundary was walking the tutorial end to end on the stand, by hand, all
+thirteen labs. Labs 02 through 13 needed no change to the stand. If they had, the stand
+would be doing the tutorial's work rather than the hypervisor's.
+</p>
+
+<pre><code>git clone https://github.com/cyb3ralbert/chapter-zero
+cd chapter-zero
+bin/fetch-base debian
+bin/kthw-stand-up</code></pre>
+
+<p>
+Four machines, static IPs, <code>machines.txt</code>, and a host that calls itself
+<code>server</code>. Then lab 01 is already done and you can start reading.
+</p>
+
+<footer>
+<a href="/">home</a> &middot;
+<a href="https://github.com/cyb3ralbert/chapter-zero">chapter-zero on github</a> &middot;
+<a href="https://github.com/cyb3ralbert">github</a> &middot;
+<a href="/feed.xml">feed</a>
+</footer>
+
+</main>
+</body>
+</html>

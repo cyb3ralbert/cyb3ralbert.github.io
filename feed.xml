@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Checked against source</title>
+  <subtitle>Write-ups where a claim is taken to the point where it could have failed. Bitcoin Core, MCP servers, hardware-backed keys.</subtitle>
+  <link href="https://kramgasse.com/feed.xml" rel="self"/>
+  <link href="https://kramgasse.com/"/>
+  <id>https://kramgasse.com/</id>
+  <updated>2026-09-10T00:00:00Z</updated>
+  <author>
+    <name>cyb3ralbert</name>
+    <uri>https://github.com/cyb3ralbert</uri>
+  </author>
+
+  <entry>
+    <title>Kubernetes The Hard Way starts at lab 01. This is chapter zero.</title>
+    <link href="https://kramgasse.com/chapter-zero/"/>
+    <id>https://kramgasse.com/chapter-zero/</id>
+    <published>2026-09-10T00:00:00Z</published>
+    <updated>2026-09-10T00:00:00Z</updated>
+    <summary>The tutorial asks for four Debian 12 machines and says nothing about where they come from. Five ways a cloud image refuses to boot on a real host, and the RAM the thirteen labs actually need — 768 MiB, not the 2048 in the spec.</summary>
+  </entry>
+
+  <entry>
+    <title>A comparison that cannot fail is not a check</title>
+    <link href="https://kramgasse.com/comparison-that-cannot-fail/"/>
+    <id>https://kramgasse.com/comparison-that-cannot-fail/</id>
+    <published>2026-08-28T00:00:00Z</published>
+    <updated>2026-08-28T00:00:00Z</updated>
+    <summary>A comment in a Bitcoin Core test file cites a URL that redirects instead of 404ing. Establishing that the replacement holds the same 64 vectors took four independent supports — and two negative controls to show the comparison could fail at all.</summary>
+  </entry>
+
+  <entry>
+    <title>What MCP servers actually expose</title>
+    <link href="https://kramgasse.com/mcp-tool-exposure/"/>
+    <id>https://kramgasse.com/mcp-tool-exposure/</id>
+    <published>2026-07-29T00:00:00Z</published>
+    <updated>2026-07-29T00:00:00Z</updated>
+    <summary>Which tools a server puts in tools/list, read line by line across six codebases. Includes the survey I got wrong and why.</summary>
+  </entry>
+
+  <entry>
+    <title>git-crypt + Trezor: keeping your repo key off the disk entirely</title>
+    <link href="https://kramgasse.com/git-crypt-trezor/"/>
+    <id>https://kramgasse.com/git-crypt-trezor/</id>
+    <published>2026-07-19T00:00:00Z</published>
+    <updated>2026-07-19T00:00:00Z</updated>
+    <summary>Wiring git-crypt's GPG mode through trezor-agent, so the repo key is never on the host. With the PIN-matrix mechanics explained and the unlock UX measured.</summary>
+  </entry>
+
+  <entry>
+    <title>Trezor as a TOTP vault: 2FA codes that never touch disk in plaintext</title>
+    <link href="https://kramgasse.com/trezor-totp/"/>
+    <id>https://kramgasse.com/trezor-totp/</id>
+    <published>2026-07-19T00:00:00Z</published>
+    <updated>2026-07-19T00:00:00Z</updated>
+    <summary>Encrypting TOTP secrets with the device's own CipherKeyValue, so only ciphertext is stored.</summary>
+  </entry>
+
+  <entry>
+    <title>Recovering a Trezor GPG identity from a seed phrase, no hardware needed</title>
+    <link href="https://kramgasse.com/trezor-gpg-recovery/"/>
+    <id>https://kramgasse.com/trezor-gpg-recovery/</id>
+    <published>2026-07-19T00:00:00Z</published>
+    <updated>2026-07-19T00:00:00Z</updated>
+    <summary>Deterministic reconstruction of the GPG identity from BIP39 via SLIP-0010, checked against the official test vector. Answers trezor-agent#335.</summary>
+  </entry>
+
+</feed>

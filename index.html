@@ -3,14 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>cyb3ralbert</title>
-<meta name="description" content="Notes on tool-level permissions in MCP servers, and on hardware-backed keys. Write-ups with working code, checked against source.">
+<title>Checked against source &mdash; Bitcoin Core, MCP, hardware-backed keys</title>
+<meta name="description" content="Write-ups where a claim is taken to the point where it could have failed. Bitcoin Core test coverage, tool-level permissions in MCP servers, hardware-backed GPG and TOTP keys &mdash; with working code and a source reference for every claim.">
 <link rel="canonical" href="https://kramgasse.com/">
+<link rel="alternate" type="application/atom+xml" title="Checked against source" href="https://kramgasse.com/feed.xml">
 <meta property="og:type" content="website">
-<meta property="og:title" content="cyb3ralbert">
-<meta property="og:description" content="Notes on tool-level permissions in MCP servers, and on hardware-backed keys.">
+<meta property="og:site_name" content="Checked against source">
+<meta property="og:title" content="Checked against source &mdash; Bitcoin Core, MCP, hardware-backed keys">
+<meta property="og:description" content="Write-ups where a claim is taken to the point where it could have failed. Bitcoin Core, MCP tool permissions, hardware-backed keys &mdash; with working code and a source reference for every claim.">
 <meta property="og:url" content="https://kramgasse.com/">
 <meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Checked against source">
+<meta name="twitter:description" content="Write-ups where a claim is taken to the point where it could have failed. Bitcoin Core, MCP tool permissions, hardware-backed keys.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  "name": "Checked against source",
+  "description": "Write-ups where a claim is taken to the point where it could have failed. Bitcoin Core, MCP tool permissions, hardware-backed keys.",
+  "url": "https://kramgasse.com/",
+  "inLanguage": "en",
+  "author": { "@type": "Person", "name": "cyb3ralbert", "url": "https://github.com/cyb3ralbert" },
+  "publisher": { "@type": "Person", "name": "cyb3ralbert", "url": "https://github.com/cyb3ralbert" }
+}
+</script>
 <style>
   :root {
     --bg: #0d1117;
@@ -64,14 +80,14 @@
 <body>
 <main>
 
-<h1>cyb3ralbert</h1>
+<h1>Checked against source</h1>
 <p class="intro">
-Infrastructure engineer. I write about things after building them, and I try to check
-claims against source rather than documentation &mdash; usually because the documentation
-turned out to be wrong.
+Write-ups where a claim is taken to the point where it could have failed. Each one is
+written after the thing was built and run, with the claims checked against source rather
+than documentation &mdash; usually because the documentation turned out to be wrong.
 </p>
 <p class="sub">
-<a href="https://github.com/cyb3ralbert">github.com/cyb3ralbert</a>
+By <a href="https://github.com/cyb3ralbert">cyb3ralbert</a>, engineer.
 </p>
 
 <h2>Now</h2>
@@ -79,11 +95,21 @@ turned out to be wrong.
 Bitcoin Core, and what it takes to establish a claim a reviewer would otherwise have to take
 on faith &mdash; starting with
 <a href="/comparison-that-cannot-fail/">64 test vectors and the comment that cites them</a>.
-Alongside it, Kubernetes from scratch on a local hypervisor.
+Alongside it, Kubernetes from scratch on a local hypervisor:
+<a href="/chapter-zero/">the four machines the tutorial does not build</a>.
 </div>
 
 <h2>Writing</h2>
 <ul class="list">
+  <li>
+    <div class="title"><a href="/chapter-zero/">Kubernetes The Hard Way starts at lab 01. This is chapter zero.</a></div>
+    <div class="desc">
+      The tutorial asks for four Debian 12 machines and says nothing about where they come
+      from. Five ways a cloud image refuses to boot on a real host, and the RAM the thirteen
+      labs actually need &mdash; 768 MiB, not the 2048 in the spec.
+    </div>
+    <div class="date">2026-09-10</div>
+  </li>
   <li>
     <div class="title"><a href="/comparison-that-cannot-fail/">A comparison that cannot fail is not a check</a></div>
     <div class="desc">
@@ -131,6 +157,13 @@ Alongside it, Kubernetes from scratch on a local hypervisor.
 <h2>Code</h2>
 <ul class="list">
   <li>
+    <div class="title"><a href="https://github.com/cyb3ralbert/chapter-zero">chapter-zero</a></div>
+    <div class="desc">
+      The four machines Kubernetes The Hard Way asks for, from cloud images on local
+      libvirt. <a href="/chapter-zero/">Write-up</a>.
+    </div>
+  </li>
+  <li>
     <div class="title"><a href="https://github.com/cyb3ralbert/claude-skills">claude-skills</a></div>
     <div class="desc">Reusable Claude Code skills, including the full step-by-step for the write-ups above.</div>
   </li>
@@ -138,16 +171,13 @@ Alongside it, Kubernetes from scratch on a local hypervisor.
     <div class="title"><a href="https://github.com/cyb3ralbert/trezor-totp">trezor-totp</a> &middot; <a href="https://github.com/cyb3ralbert/trezor-gpg-recovery">trezor-gpg-recovery</a></div>
     <div class="desc">Working implementations for the two Trezor write-ups.</div>
   </li>
-  <li>
-    <div class="title"><a href="https://github.com/cyb3ralbert/nobsgojobs-go">nobsgojobs-go</a></div>
-    <div class="desc">Minimal Go client for a free feed of current Go/backend job postings.</div>
-  </li>
 </ul>
 
 <footer>
 &copy; 2026 cyb3ralbert &middot;
 <a href="https://github.com/cyb3ralbert">github</a> &middot;
 <a href="mailto:cyberalbert@protonmail.ch">email</a> &middot;
+<a href="/feed.xml">feed</a> &middot;
 <a href="/donate/">donate</a>
 </footer>
 
